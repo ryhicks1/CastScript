@@ -1,0 +1,971 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ScriptCast - Character Breakdown Tool</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.14.305/pdf.min.js"></script>
+    <style>
+        .drop-zone {
+            border: 2px dashed #ccc;
+            border-radius: 8px;
+            padding: 20px;
+            text-align: center;
+            background-color: #f8f9fa;
+            transition: all 0.3s ease;
+        }
+        .drop-zone:hover, .drop-zone.dragover {
+            border-color: #4299e1;
+            background-color: #ebf8ff;
+        }
+        .progress-bar {
+            height: 8px;
+            background-color: #e2e8f0;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .progress-bar-fill {
+            height: 100%;
+            background-color: #4299e1;
+            border-radius: 4px;
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+        .character-card {
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 20px;
+            background-color: #fff;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+        .character-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        .tooltip {
+            position: relative;
+            display: inline-block;
+        }
+        .tooltip .tooltiptext {
+            visibility: hidden;
+            width: 120px;
+            background-color: #555;
+            color: #fff;
+            text-align: center;
+            border-radius: 6px;
+            padding: 5px;
+            position: absolute;
+            z-index: 1;
+            bottom: 125%;
+            left: 50%;
+            margin-left: -60px;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+        .tooltip .tooltiptext::after {
+            content: "";
+            position: absolute;
+            top: 100%;
+            left: 50%;
+            margin-left: -5px;
+            border-width: 5px;
+            border-style: solid;
+            border-color: #555 transparent transparent transparent;
+        }
+        .tooltip:hover .tooltiptext {
+            visibility: visible;
+            opacity: 1;
+        }
+        select {
+            appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%234a5568'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 0.5rem center;
+            background-size: 1.5em 1.5em;
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <header class="bg-gradient-to-r from-blue-600 to-indigo-700 text-white shadow-md">
+        <div class="container mx-auto px-4 py-6">
+            <div class="flex justify-between items-center">
+                <div>
+                    <h1 class="text-3xl font-bold">ScriptCast</h1>
+                    <p class="text-blue-100">Character Breakdown Tool for Casting Directors</p>
+                </div>
+                <nav>
+                    <ul class="flex space-x-6">
+                        <li><a href="#" class="hover:text-blue-200 transition">Home</a></li>
+                        <li><a href="#about" class="hover:text-blue-200 transition">About</a></li>
+                        <li><a href="#contact" class="hover:text-blue-200 transition">Contact</a></li>
+                    </ul>
+                </nav>
+            </div>
+        </div>
+    </header>
+
+    <main class="container mx-auto px-4 py-8">
+        <section class="mb-12">
+            <div class="bg-white rounded-lg shadow-md p-6 mb-8">
+                <h2 class="text-2xl font-semibold mb-4">Upload Your Script</h2>
+                <p class="text-gray-600 mb-6">Upload your script file (PDF, DOCX, FDX, etc.) to automatically generate character breakdowns with detailed descriptions.</p>
+                
+                <div class="drop-zone mb-4" id="drop-zone">
+                    <div class="mb-4">
+                        <i class="fas fa-file-upload text-4xl text-gray-400"></i>
+                    </div>
+                    <p class="text-gray-500 mb-2">Drag and drop your script file here</p>
+                    <p class="text-gray-400 text-sm">or</p>
+                    <button id="select-file-btn" class="mt-2 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition">Select File</button>
+                    <input type="file" id="file-input" class="hidden" accept=".pdf,.docx,.doc,.fdx,.fountain,.txt">
+                </div>
+                
+                <div id="file-info" class="hidden">
+                    <div class="flex items-center mb-2">
+                        <i class="fas fa-file-alt text-blue-500 mr-2"></i>
+                        <span id="file-name" class="text-gray-700"></span>
+                        <button id="remove-file-btn" class="ml-2 text-red-500 hover:text-red-700">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                    <div class="progress-bar">
+                        <div class="progress-bar-fill" id="progress-bar-fill"></div>
+                    </div>
+                </div>
+
+                <div id="analysis-status" class="hidden mt-4 text-center">
+                    <div class="inline-block animate-spin mr-2">
+                        <i class="fas fa-spinner text-blue-500"></i>
+                    </div>
+                    <span id="status-text" class="text-gray-700">Analyzing script...</span>
+                </div>
+
+                <div class="mt-6 flex justify-center">
+                    <button id="analyze-btn" class="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+                        <i class="fas fa-magic mr-2"></i>Analyze Script
+                    </button>
+                </div>
+            </div>
+
+            <div id="summary-section" class="hidden bg-white rounded-lg shadow-md p-6 mb-8">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-2xl font-semibold">Script Summary</h2>
+                    <div>
+                        <button id="copy-all-btn" class="mr-2 px-3 py-1 bg-gray-100 text-gray-700 rounded hover:bg-gray-200 transition text-sm">
+                            <i class="far fa-copy mr-1"></i>Copy All
+                        </button>
+                        <button id="export-pdf-btn" class="px-3 py-1 bg-blue-50 text-blue-700 rounded hover:bg-blue-100 transition text-sm">
+                            <i class="far fa-file-pdf mr-1"></i>Export PDF
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="mb-6">
+                    <h3 class="text-lg font-medium mb-2">Script Information</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div class="bg-gray-50 p-3 rounded">
+                            <span class="text-gray-500 text-sm">Title</span>
+                            <p id="script-title" class="font-medium">-</p>
+                        </div>
+                        <div class="bg-gray-50 p-3 rounded">
+                            <span class="text-gray-500 text-sm">Author</span>
+                            <p id="script-author" class="font-medium">-</p>
+                        </div>
+                        <div class="bg-gray-50 p-3 rounded">
+                            <span class="text-gray-500 text-sm">Format</span>
+                            <p id="script-format" class="font-medium">-</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div>
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="text-lg font-medium">Character Breakdowns</h3>
+                        <button id="toggle-all-btn" class="px-3 py-1 bg-gray-100 text-gray-700 rounded hover:bg-gray-200 transition text-sm">
+                            <i class="fas fa-expand-alt mr-1"></i>Expand All
+                        </button>
+                    </div>
+                    
+                    <div id="characters-container" class="space-y-4">
+                        <!-- Character cards will be inserted here -->
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="about" class="bg-white rounded-lg shadow-md p-6 mb-8">
+            <h2 class="text-2xl font-semibold mb-4">About ScriptCast</h2>
+            <p class="text-gray-600 mb-4">
+                ScriptCast is a powerful tool designed specifically for casting directors, directors, and producers to analyze scripts and generate detailed character breakdowns. Our AI-powered analysis extracts critical information about each role, helping you find the perfect actor for every part.
+            </p>
+            <p class="text-gray-600 mb-4">
+                With ScriptCast, you can upload scripts in various formats and receive comprehensive character descriptions within minutes. Each character breakdown includes key attributes such as gender, age range, line count (with SAG-AFTRA classification), and ethnic appearance, along with a detailed description of the character's traits and requirements.
+            </p>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mt-6">
+                <div class="border border-gray-200 rounded-lg p-4 text-center">
+                    <div class="text-blue-500 text-3xl mb-2">
+                        <i class="fas fa-bolt"></i>
+                    </div>
+                    <h3 class="text-lg font-medium mb-2">Fast Analysis</h3>
+                    <p class="text-gray-600 text-sm">Analyze scripts up to 200 pages in under 2 minutes</p>
+                </div>
+                <div class="border border-gray-200 rounded-lg p-4 text-center">
+                    <div class="text-blue-500 text-3xl mb-2">
+                        <i class="fas fa-file-alt"></i>
+                    </div>
+                    <h3 class="text-lg font-medium mb-2">Multiple Formats</h3>
+                    <p class="text-gray-600 text-sm">Support for PDF, DOCX, FDX, Fountain, and more</p>
+                </div>
+                <div class="border border-gray-200 rounded-lg p-4 text-center">
+                    <div class="text-blue-500 text-3xl mb-2">
+                        <i class="fas fa-user-edit"></i>
+                    </div>
+                    <h3 class="text-lg font-medium mb-2">Editable Attributes</h3>
+                    <p class="text-gray-600 text-sm">Customize character attributes with easy-to-use dropdown menus</p>
+                </div>
+            </div>
+            
+            <div class="border-t border-gray-200 pt-6 mt-6">
+                <h3 class="text-lg font-medium mb-4">How It Works</h3>
+                <ol class="list-decimal list-inside space-y-2 text-gray-600 pl-4">
+                    <li>Upload your script (PDF, DOCX, FDX, or plain text)</li>
+                    <li>Our AI analyzes the script and identifies all characters</li>
+                    <li>For each character, we determine gender, age range, line count, and ethnic appearance</li>
+                    <li>We generate detailed character descriptions highlighting key traits and acting requirements</li>
+                    <li>Edit any attribute as needed for your casting needs</li>
+                    <li>Copy individual character breakdowns or export the complete analysis</li>
+                </ol>
+            </div>
+        </section>
+
+        <section id="contact" class="bg-white rounded-lg shadow-md p-6">
+            <h2 class="text-2xl font-semibold mb-4">Contact Us</h2>
+            <p class="text-gray-600 mb-6">Have questions or need assistance? We're here to help! Reach out to our team.</p>
+            
+            <form class="space-y-4">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label for="name" class="block text-gray-700 mb-1">Name</label>
+                        <input type="text" id="name" class="w-full px-4 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    </div>
+                    <div>
+                        <label for="email" class="block text-gray-700 mb-1">Email</label>
+                        <input type="email" id="email" class="w-full px-4 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    </div>
+                </div>
+                <div>
+                    <label for="subject" class="block text-gray-700 mb-1">Subject</label>
+                    <input type="text" id="subject" class="w-full px-4 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+                <div>
+                    <label for="message" class="block text-gray-700 mb-1">Message</label>
+                    <textarea id="message" rows="4" class="w-full px-4 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"></textarea>
+                </div>
+                <div>
+                    <button type="submit" class="px-6 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition">Send Message</button>
+                </div>
+            </form>
+        </section>
+        
+        <!-- API Preferences Modal (hidden by default) -->
+        <div id="api-preferences-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+            <div class="bg-white rounded-lg p-6 max-w-md w-full">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-xl font-semibold">API Preferences</h3>
+                    <button id="close-modal-btn" class="text-gray-500 hover:text-gray-700">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                
+                <div class="mb-4">
+                    <label class="block text-gray-700 mb-2">Select AI Model</label>
+                    <div class="space-y-2">
+                        <label class="flex items-center">
+                            <input type="radio" name="ai-model" value="openai" checked class="mr-2">
+                            <span>OpenAI (GPT-4)</span>
+                        </label>
+                        <label class="flex items-center">
+                            <input type="radio" name="ai-model" value="gemini" class="mr-2">
+                            <span>Google Gemini Pro</span>
+                        </label>
+                    </div>
+                </div>
+                
+                <div class="mb-4">
+                    <label for="api-key" class="block text-gray-700 mb-2">API Key (Optional)</label>
+                    <input type="text" id="api-key" class="w-full px-4 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Enter your API key">
+                    <p class="text-xs text-gray-500 mt-1">Leave blank to use our default key (rate limits apply)</p>
+                </div>
+                
+                <div class="flex justify-end">
+                    <button id="save-preferences-btn" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition">Save Preferences</button>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <footer class="bg-gray-800 text-white mt-12">
+        <div class="container mx-auto px-4 py-8">
+            <div class="flex flex-col md:flex-row justify-between">
+                <div class="mb-6 md:mb-0">
+                    <h3 class="text-xl font-bold mb-2">ScriptCast</h3>
+                    <p class="text-gray-400">The ultimate tool for casting directors</p>
+                </div>
+                <div class="flex flex-col md:flex-row space-y-4 md:space-y-0 md:space-x-12">
+                    <div>
+                        <h4 class="text-lg font-medium mb-2">Quick Links</h4>
+                        <ul class="space-y-2 text-gray-400">
+                            <li><a href="#" class="hover:text-white transition">Home</a></li>
+                            <li><a href="#about" class="hover:text-white transition">About</a></li>
+                            <li><a href="#contact" class="hover:text-white transition">Contact</a></li>
+                        </ul>
+                    </div>
+                    <div>
+                        <h4 class="text-lg font-medium mb-2">Legal</h4>
+                        <ul class="space-y-2 text-gray-400">
+                            <li><a href="#" class="hover:text-white transition">Terms of Service</a></li>
+                            <li><a href="#" class="hover:text-white transition">Privacy Policy</a></li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+            <div class="border-t border-gray-700 mt-8 pt-6 text-center text-gray-400">
+                <p>&copy; 2025 ScriptCast. All rights reserved.</p>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Error message template -->
+    <div id="error-message" class="hidden fixed top-4 left-1/2 transform -translate-x-1/2 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded z-50">
+        <div class="flex">
+            <div class="py-1"><i class="fas fa-exclamation-circle"></i></div>
+            <div class="ml-2">
+                <p id="error-text">Error message here</p>
+            </div>
+            <div class="ml-auto pl-3">
+                <button id="close-error-btn" class="text-red-700 hover:text-red-900">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Template for character card -->
+    <template id="character-card-template">
+        <div class="character-card">
+            <div class="flex justify-between items-start">
+                <div>
+                    <h3 class="text-xl font-semibold character-name">Character Name</h3>
+                    <p class="text-gray-500 role-type">Supporting Role</p>
+                </div>
+                <div class="flex space-x-2">
+                    <button class="copy-btn tooltip">
+                        <i class="far fa-copy text-gray-500 hover:text-blue-500"></i>
+                        <span class="tooltiptext">Copy</span>
+                    </button>
+                    <button class="toggle-card-btn">
+                        <i class="fas fa-chevron-down text-gray-500 hover:text-blue-500"></i>
+                    </button>
+                </div>
+            </div>
+            
+            <div class="character-details mt-4 hidden">
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+                    <div>
+                        <label class="block text-gray-500 text-sm mb-1">Gender</label>
+                        <select class="gender-select w-full p-2 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 text-gray-700">
+                            <option value="Male">Male</option>
+                            <option value="Female">Female</option>
+                            <option value="Non-Binary">Non-Binary</option>
+                            <option value="Any">Any</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-gray-500 text-sm mb-1">Age Range</label>
+                        <div class="flex items-center space-x-2">
+                            <input type="number" class="age-min w-16 p-2 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 text-gray-700" min="1" max="100">
+                            <span class="text-gray-500">to</span>
+                            <input type="number" class="age-max w-16 p-2 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 text-gray-700" min="1" max="100">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-gray-500 text-sm mb-1">Line Count</label>
+                        <div class="flex items-center">
+                            <input type="number" class="line-count w-20 p-2 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 text-gray-700" min="0" readonly>
+                            <span class="ml-2 px-2 py-1 text-xs rounded sag-classification">Lead</span>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-gray-500 text-sm mb-1">Ethnic Appearance</label>
+                        <select class="ethnicity-select w-full p-2 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 text-gray-700">
+                            <option value="White">White</option>
+                            <option value="Black">Black</option>
+                            <option value="Asian">Asian</option>
+                            <option value="Latin/Hispanic">Latin/Hispanic</option>
+                            <option value="Ethnically Ambiguous">Ethnically Ambiguous</option>
+                            <option value="Pacific Islander">Pacific Islander</option>
+                            <option value="Aboriginal">Aboriginal</option>
+                            <option value="Middle Eastern">Middle Eastern</option>
+                            <option value="Mediterranean">Mediterranean</option>
+                            <option value="Native American">Native American</option>
+                            <option value="East Asian">East Asian</option>
+                            <option value="East Indian/South Asian">East Indian/South Asian</option>
+                            <option value="Southeast Asian">Southeast Asian</option>
+                            <option value="Maori">Maori</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div>
+                    <label class="block text-gray-500 text-sm mb-1">Description</label>
+                    <textarea class="character-description w-full p-3 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 text-gray-700" rows="5"></textarea>
+                    <div class="text-right text-xs text-gray-500 mt-1">
+                        <span class="word-count">0</span>/200 words
+                    </div>
+                </div>
+            </div>
+        </div>
+    </template>
+
+    <script>
+        // API configuration
+        const API_CONFIG = {
+            // OpenAI API settings
+            openai: {
+                key: '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',
+                endpoint: 'https://api.openai.com/v1/chat/completions',
+                model: 'gpt-4-turbo-preview'
+            },
+            // Gemini API settings
+            gemini: {
+                key: 'AIzaSyCfDasqNX7MoJdSPD0JlouBvTVP2ZbuAJs',
+                endpoint: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent'
+            }
+        };
+
+        document.addEventListener('DOMContentLoaded', () => {
+            // Initialize PDF.js
+            pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.14.305/pdf.worker.min.js';
+            
+            // DOM elements
+            const dropZone = document.getElementById('drop-zone');
+            const fileInput = document.getElementById('file-input');
+            const selectFileBtn = document.getElementById('select-file-btn');
+            const fileInfo = document.getElementById('file-info');
+            const fileName = document.getElementById('file-name');
+            const removeFileBtn = document.getElementById('remove-file-btn');
+            const progressBarFill = document.getElementById('progress-bar-fill');
+            const analyzeBtn = document.getElementById('analyze-btn');
+            const analysisStatus = document.getElementById('analysis-status');
+            const statusText = document.getElementById('status-text');
+            const summarySection = document.getElementById('summary-section');
+            const charactersContainer = document.getElementById('characters-container');
+            const toggleAllBtn = document.getElementById('toggle-all-btn');
+            const copyAllBtn = document.getElementById('copy-all-btn');
+            const exportPdfBtn = document.getElementById('export-pdf-btn');
+            
+            // Script info elements
+            const scriptTitleEl = document.getElementById('script-title');
+            const scriptAuthorEl = document.getElementById('script-author');
+            const scriptFormatEl = document.getElementById('script-format');
+            
+            // Script data
+            let selectedFile = null;
+            let scriptText = '';
+            let scriptData = null;
+            let charactersExpanded = false;
+            
+  // Event listeners for file selection
+selectFileBtn.addEventListener('click', () => {
+    fileInput.click();
+});
+
+fileInput.addEventListener('change', (e) => {
+    if (e.target.files.length > 0) {
+        handleFileSelection(e.target.files[0]);
+    }
+});
+
+// Drag and drop functionality
+dropZone.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dropZone.classList.add('dragover');
+});
+
+dropZone.addEventListener('dragleave', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dropZone.classList.remove('dragover');
+});
+
+dropZone.addEventListener('drop', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dropZone.classList.remove('dragover');
+    
+    if (e.dataTransfer.files.length > 0) {
+        handleFileSelection(e.dataTransfer.files[0]);
+    }
+});
+
+// Handle file selection with proper feedback
+function handleFileSelection(file) {
+    selectedFile = file;
+    fileName.textContent = file.name;
+    fileInfo.classList.remove('hidden');
+    analyzeBtn.disabled = false;
+    
+    // Reset previous analysis if any
+    summarySection.classList.add('hidden');
+    progressBarFill.style.width = '0%';
+    
+    // Extract the text from the file
+    extractTextFromFile(file);
+}          
+            // Reset file selection
+            function resetFileSelection() {
+                selectedFile = null;
+                scriptText = '';
+                fileInput.value = '';
+                fileInfo.classList.add('hidden');
+                analyzeBtn.disabled = true;
+                progressBarFill.style.width = '0%';
+                
+                // Hide analysis section if visible
+                summarySection.classList.add('hidden');
+            }
+            
+            // Utility function to validate file type
+            function isValidFileType(file) {
+                const validTypes = ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'text/plain'
+                                    name: "Carlos Vega",
+                                    type: "Supporting",
+                                    gender: "Male",
+                                    ageRange: [40, 50],
+                                    lineCount: 87,
+                                    ethnicity: "Latin/Hispanic",
+                                    description: "Carlos is a local guide and Alex's longtime friend. He's warm, loyal, and has deep knowledge of local legends. The role requires conveying wisdom and cultural perspective, serving as both comic relief and moral compass. The actor needs to create an authentic, grounded character who feels connected to the land and its history."
+                                },
+                                {
+                                    name: "Director Ellison",
+                                    type: "Day Player",
+                                    gender: "Female",
+                                    ageRange: [45, 60],
+                                    lineCount: 32,
+                                    ethnicity: "Black",
+                                    description: "Director Ellison is the tough, no-nonsense head of the research institution funding the expedition. She's skeptical but fair, demanding results while managing political pressures. The actor should project authority and intelligence, with moments revealing her genuine passion for discovery beneath her professional exterior."
+                                },
+                                {
+                                    name: "James Harrington",
+                                    type: "Supporting",
+                                    gender: "Male",
+                                    ageRange: [35, 50],
+                                    lineCount: 65,
+                                    ethnicity: "White",
+                                    description: "Harrington is a wealthy tech entrepreneur financing the expedition for his own mysterious reasons. Superficially charming but calculating, he hides his true motives behind philanthropy. The actor needs to balance charisma with subtle menace, creating an antagonist whose villainy emerges gradually rather than being immediately apparent."
+                                }
+                            ]
+                        });
+                    }, 3000);
+                });
+            }
+            
+            // Display the script analysis
+            function displayScriptAnalysis() {
+                // Populate script information
+                document.getElementById('script-title').textContent = scriptData.title;
+                document.getElementById('script-author').textContent = scriptData.author;
+                document.getElementById('script-format').textContent = scriptData.format;
+                
+                // Clear previous characters
+                charactersContainer.innerHTML = '';
+                
+                // Add character cards
+                scriptData.characters.forEach(character => {
+                    addCharacterCard(character);
+                });
+                
+                // Show the summary section
+                summarySection.classList.remove('hidden');
+                analysisStatus.classList.add('hidden');
+                
+                // Scroll to the summary section
+                summarySection.scrollIntoView({ behavior: 'smooth' });
+            }
+            
+            // Add a character card to the container
+            function addCharacterCard(character) {
+                const template = document.getElementById('character-card-template');
+                const card = document.importNode(template.content, true);
+                
+                // Set character name and role type
+                card.querySelector('.character-name').textContent = character.name;
+                card.querySelector('.role-type').textContent = character.type;
+                
+                // Set gender
+                const genderSelect = card.querySelector('.gender-select');
+                genderSelect.value = character.gender;
+                
+                // Set age range
+                card.querySelector('.age-min').value = character.ageRange[0];
+                card.querySelector('.age-max').value = character.ageRange[1];
+                
+                // Set line count and SAG classification
+                card.querySelector('.line-count').value = character.lineCount;
+                
+                const sagClassification = card.querySelector('.sag-classification');
+                sagClassification.textContent = character.type;
+                
+                // Set color for SAG classification
+                if (character.type === 'Lead') {
+                    sagClassification.classList.add('bg-blue-100', 'text-blue-800');
+                } else if (character.type === 'Supporting') {
+                    sagClassification.classList.add('bg-green-100', 'text-green-800');
+                } else if (character.type === 'Day Player') {
+                    sagClassification.classList.add('bg-yellow-100', 'text-yellow-800');
+                } else {
+                    sagClassification.classList.add('bg-gray-100', 'text-gray-800');
+                }
+                
+                // Set ethnicity
+                const ethnicitySelect = card.querySelector('.ethnicity-select');
+                ethnicitySelect.value = character.ethnicity;
+                
+                // Set description
+                const descriptionTextarea = card.querySelector('.character-description');
+                descriptionTextarea.value = character.description;
+                
+                // Update word count
+                const wordCount = card.querySelector('.word-count');
+                wordCount.textContent = countWords(character.description);
+                
+                // Event listener for description textarea
+                descriptionTextarea.addEventListener('input', (e) => {
+                    const count = countWords(e.target.value);
+                    wordCount.textContent = count;
+                    
+                    // Change color if over 200 words
+                    if (count > 200) {
+                        wordCount.classList.add('text-red-500');
+                    } else {
+                        wordCount.classList.remove('text-red-500');
+                    }
+                });
+                
+                // Toggle card details
+                const toggleBtn = card.querySelector('.toggle-card-btn');
+                const details = card.querySelector('.character-details');
+                
+                toggleBtn.addEventListener('click', () => {
+                    details.classList.toggle('hidden');
+                    const icon = toggleBtn.querySelector('i');
+                    icon.classList.toggle('fa-chevron-down');
+                    icon.classList.toggle('fa-chevron-up');
+                });
+                
+                // Copy character info
+                const copyBtn = card.querySelector('.copy-btn');
+                copyBtn.addEventListener('click', () => {
+                    copyCharacterInfo(card);
+                });
+                
+                // Add the card to the container
+                charactersContainer.appendChild(card);
+            }
+            
+            // Count words in a string
+            function countWords(str) {
+                return str.trim().split(/\s+/).length;
+            }
+            
+            // Copy character info to clipboard
+            function copyCharacterInfo(cardElement) {
+                const name = cardElement.querySelector('.character-name').textContent;
+                const role = cardElement.querySelector('.role-type').textContent;
+                const gender = cardElement.querySelector('.gender-select').value;
+                const ageMin = cardElement.querySelector('.age-min').value;
+                const ageMax = cardElement.querySelector('.age-max').value;
+                const lineCount = cardElement.querySelector('.line-count').value;
+                const ethnicity = cardElement.querySelector('.ethnicity-select').value;
+                const description = cardElement.querySelector('.character-description').value;
+                
+                const characterInfo = `
+Character: ${name}
+Role Type: ${role}
+Gender: ${gender}
+Age Range: ${ageMin}-${ageMax}
+Line Count: ${lineCount}
+Ethnic Appearance: ${ethnicity}
+Description:
+${description}
+                `.trim();
+                
+                navigator.clipboard.writeText(characterInfo).then(() => {
+                    const tooltip = cardElement.querySelector('.tooltiptext');
+                    tooltip.textContent = 'Copied!';
+                    setTimeout(() => {
+                        tooltip.textContent = 'Copy';
+                    }, 2000);
+                }).catch(err => {
+                    console.error('Failed to copy text: ', err);
+                });
+            }
+            
+            // Toggle all character cards
+            function toggleAllCharacters() {
+                const details = document.querySelectorAll('.character-details');
+                const icons = document.querySelectorAll('.toggle-card-btn i');
+                
+                charactersExpanded = !charactersExpanded;
+                
+                details.forEach(detail => {
+                    if (charactersExpanded) {
+                        detail.classList.remove('hidden');
+                    } else {
+                        detail.classList.add('hidden');
+                    }
+                });
+                
+                icons.forEach(icon => {
+                    if (charactersExpanded) {
+                        icon.classList.remove('fa-chevron-down');
+                        icon.classList.add('fa-chevron-up');
+                    } else {
+                        icon.classList.add('fa-chevron-down');
+                        icon.classList.remove('fa-chevron-up');
+                    }
+                });
+                
+                toggleAllBtn.innerHTML = charactersExpanded ? 
+                    '<i class="fas fa-compress-alt mr-1"></i>Collapse All' : 
+                    '<i class="fas fa-expand-alt mr-1"></i>Expand All';
+            }
+            
+            // Copy all characters to clipboard
+            function copyAllCharacters() {
+                let allCharactersText = `SCRIPT: ${scriptData.title} by ${scriptData.author}\n\n`;
+                
+                scriptData.characters.forEach(character => {
+                    allCharactersText += `
+CHARACTER: ${character.name}
+Role Type: ${character.type}
+Gender: ${character.gender}
+Age Range: ${character.ageRange[0]}-${character.ageRange[1]}
+Line Count: ${character.lineCount}
+Ethnic Appearance: ${character.ethnicity}
+Description:
+${character.description}
+
+`;
+                });
+                
+                navigator.clipboard.writeText(allCharactersText.trim()).then(() => {
+                    alert('All character descriptions copied to clipboard!');
+                }).catch(err => {
+                    console.error('Failed to copy text: ', err);
+                    alert('Failed to copy to clipboard. Please try again.');
+                });
+            }
+            
+            // Export to PDF
+            function exportToPDF() {
+                // In a real implementation, you would use a library like jsPDF
+                // Here's a simplified implementation that creates a simple PDF
+                
+                const { jsPDF } = window.jspdf;
+                
+                // Create a new PDF document
+                const doc = new jsPDF();
+                let yPos = 20;
+                const lineHeight = 7;
+                
+                // Add script info
+                doc.setFontSize(18);
+                doc.text(`${scriptData.title}`, 105, yPos, { align: 'center' });
+                yPos += lineHeight * 2;
+                
+                doc.setFontSize(12);
+                doc.text(`by ${scriptData.author}`, 105, yPos, { align: 'center' });
+                yPos += lineHeight * 2;
+                
+                doc.setFontSize(10);
+                doc.text(`Format: ${scriptData.format}`, 105, yPos, { align: 'center' });
+                yPos += lineHeight * 3;
+                
+                // Add character breakdowns
+                doc.setFontSize(14);
+                doc.text("CHARACTER BREAKDOWNS", 105, yPos, { align: 'center' });
+                yPos += lineHeight * 2;
+                
+                // Loop through characters
+                scriptData.characters.forEach(character => {
+                    // Check if we need a new page
+                    if (yPos > 250) {
+                        doc.addPage();
+                        yPos = 20;
+                    }
+                    
+                    doc.setFontSize(12);
+                    doc.setFont(undefined, 'bold');
+                    doc.text(`${character.name}`, 20, yPos);
+                    yPos += lineHeight;
+                    
+                    doc.setFontSize(10);
+                    doc.setFont(undefined, 'normal');
+                    doc.text(`Role Type: ${character.type}`, 20, yPos);
+                    yPos += lineHeight;
+                    
+                    doc.text(`Gender: ${character.gender}`, 20, yPos);
+                    yPos += lineHeight;
+                    
+                    doc.text(`Age Range: ${character.ageRange[0]}-${character.ageRange[1]}`, 20, yPos);
+                    yPos += lineHeight;
+                    
+                    doc.text(`Line Count: ${character.lineCount}`, 20, yPos);
+                    yPos += lineHeight;
+                    
+                    doc.text(`Ethnic Appearance: ${character.ethnicity}`, 20, yPos);
+                    yPos += lineHeight;
+                    
+                    doc.text(`Description:`, 20, yPos);
+                    yPos += lineHeight;
+                    
+                    // Handle description text with wrapping
+                    const splitText = doc.splitTextToSize(character.description, 170);
+                    doc.text(splitText, 25, yPos);
+                    yPos += (splitText.length * lineHeight) + lineHeight * 2;
+                });
+                
+                // Save the PDF
+                doc.save(`${scriptData.title}_character_breakdowns.pdf`);
+            }
+            
+            // API preferences modal functionality
+            const apiPreferencesModal = document.getElementById('api-preferences-modal');
+            const closeModalBtn = document.getElementById('close-modal-btn');
+            const savePreferencesBtn = document.getElementById('save-preferences-btn');
+            
+            // Function to toggle the API preferences modal
+            function toggleApiPreferencesModal() {
+                apiPreferencesModal.classList.toggle('hidden');
+            }
+            
+            // Event listeners for API preferences modal
+            closeModalBtn.addEventListener('click', toggleApiPreferencesModal);
+            savePreferencesBtn.addEventListener('click', () => {
+                // Get selected AI model
+                const selectedModel = document.querySelector('input[name="ai-model"]:checked').value;
+                
+                // Get custom API key if provided
+                const customApiKey = document.getElementById('api-key').value.trim();
+                
+                // Update API configuration with custom key if provided
+                if (customApiKey) {
+                    if (selectedModel === 'openai') {
+                        API_CONFIG.openai.key = customApiKey;
+                    } else if (selectedModel === 'gemini') {
+                        API_CONFIG.gemini.key = customApiKey;
+                    }
+                }
+                
+                // Close the modal
+                toggleApiPreferencesModal();
+                
+                // Show confirmation
+                alert(`Preferences saved! Using ${selectedModel === 'openai' ? 'OpenAI GPT-4' : 'Google Gemini Pro'} for script analysis.`);
+            });
+            
+            // Add API preferences link to the header
+            const navLinks = document.querySelector('nav ul');
+            const apiPrefsLink = document.createElement('li');
+            apiPrefsLink.innerHTML = '<a href="#" class="hover:text-blue-200 transition">API Settings</a>';
+            apiPrefsLink.addEventListener('click', (e) => {
+                e.preventDefault();
+                toggleApiPreferencesModal();
+            });
+            navLinks.appendChild(apiPrefsLink);
+            
+            // Error message functionality
+            const errorMessage = document.getElementById('error-message');
+            const errorText = document.getElementById('error-text');
+            const closeErrorBtn = document.getElementById('close-error-btn');
+            
+            // Show error message
+            function showError(message) {
+                errorText.textContent = message;
+                errorMessage.classList.remove('hidden');
+                
+                // Auto-hide after 5 seconds
+                setTimeout(() => {
+                    errorMessage.classList.add('hidden');
+                }, 5000);
+            }
+            
+            // Close error message
+            closeErrorBtn.addEventListener('click', () => {
+                errorMessage.classList.add('hidden');
+            });
+            
+            // Additional event listeners for form submission in contact section
+            const contactForm = document.querySelector('#contact form');
+            contactForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                const name = document.getElementById('name').value;
+                const email = document.getElementById('email').value;
+                const subject = document.getElementById('subject').value;
+                const message = document.getElementById('message').value;
+                
+                if (!name || !email || !subject || !message) {
+                    showError('Please fill in all fields');
+                    return;
+                }
+                
+                // In a real implementation, you would send the form data to your backend
+                // Simulate form submission
+                alert('Thank you for your message! We will get back to you soon.');
+                contactForm.reset();
+            });
+            
+            // Initialize tooltips
+            document.querySelectorAll('.tooltip').forEach(tooltip => {
+                tooltip.addEventListener('mouseover', () => {
+                    tooltip.querySelector('.tooltiptext').style.visibility = 'visible';
+                    tooltip.querySelector('.tooltiptext').style.opacity = '1';
+                });
+                
+                tooltip.addEventListener('mouseout', () => {
+                    tooltip.querySelector('.tooltiptext').style.visibility = 'hidden';
+                    tooltip.querySelector('.tooltiptext').style.opacity = '0';
+                });
+            });
+            
+            // Load jsPDF dynamically for PDF export
+            function loadJsPDF() {
+                if (!window.jspdf) {
+                    const script = document.createElement('script');
+                    script.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
+                    script.async = true;
+                    document.head.appendChild(script);
+                }
+            }
+            loadJsPDF();
+            
+            // Custom dropdown styling
+            document.querySelectorAll('select').forEach(select => {
+                select.addEventListener('change', function() {
+                    if (this.value) {
+                        this.classList.add('text-gray-800');
+                    } else {
+                        this.classList.remove('text-gray-800');
+                    }
+                });
+            });
+        });
+    </script>
+</body>
+</html>
